@@ -1,0 +1,10 @@
+{
+  "name": "raxxy-bot-cloner",
+  "version": "1.0.0",
+  "description": "Raxxy Dev Automated Webhook Bot Cloner Server",
+  "main": "server.js",
+  "dependencies": {
+    "express": "^4.19.2",
+    "axios": "^1.7.2"
+  }
+}
