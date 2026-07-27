@@ -2,7 +2,8 @@ const axios = require('axios');
 const { sendMainMenu, sendAdminPanel } = require('./menu_helpers');
 const { handleAdminCallbacks } = require('./admin_handlers');
 const { handleUserText } = require('./user_handlers');
-const { handleUpiSettings, saveAdminUpi } = require('./admin_upi_handler'); // UPI इम्पोर्ट
+const { handleUpiSettings, saveAdminUpi } = require('./admin_upi_handler');
+const { handlePlanSelection, handleFreeSample } = require('./plan_handlers'); // नए इम्पोर्ट्स
 
 async function handleWebhookUpdate(token, body, activeClones, saveClones) {
   const clone = activeClones[token];
@@ -11,6 +12,7 @@ async function handleWebhookUpdate(token, body, activeClones, saveClones) {
   const message = body.message;
   const callbackQuery = body.callback_query;
 
+  // 1. HANDLE CALLBACK QUERIES
   if (callbackQuery) {
     const chatId = callbackQuery.message.chat.id;
     const data = callbackQuery.data;
@@ -72,28 +74,10 @@ async function handleWebhookUpdate(token, body, activeClones, saveClones) {
       }
     }
     else if (data === "free_sample") {
-      let demoMsg = "🔥 *FREE SAMPLE PREVIEW* 🔥\n" +
-                    "━━━━━━━━━━━━━━━━━━━━━\n" +
-                    "Ye hamare premium VIP collection ka ek chota sa preview hai.\n\n" +
-                    "💎 *Premium VIP mein kya milega?*\n" +
-                    "✅ Full length Ultra HD 4K Videos\n" +
-                    "✅ Daily 50+ New Updates\n" +
-                    "✅ Private Community Access\n" +
-                    "━━━━━━━━━━━━━━━━━━━━━\n" +
-                    "👇 *Full access ke liye plan select karein:*";
-      let btns = [
-        [{ text: "🚀 Buy VIP Membership", callback_data: "/start" }],
-        [{ text: "🏠 Main Menu", callback_data: "/start" }]
-      ];
-      await axios.post(`https://api.telegram.org/bot${token}/sendPhoto`, {
-        chat_id: chatId, photo: "https://i.ibb.co/B5RbHpB9/x.jpg", caption: demoMsg, parse_mode: "Markdown",
-        reply_markup: { inline_keyboard: btns }
-      });
+      await handleFreeSample(token, chatId, clone); // नए हैंडलर पर भेजें
     }
     else if (data === "plan_desi" || data === "plan_cornhub" || data === "plan_onlyfans" || data === "plan_asian" || data === "plan_all") {
-      let cat = data.split("_")[1], pr = clone.prices[cat] || "149";
-      let photo = cat === "desi" ? "https://i.ibb.co/MxTRHgx0/x.jpg" : (cat === "cornhub" ? "https://i.ibb.co/Kx52sLSR/x.jpg" : (cat === "all" ? "https://i.ibb.co/mVkLbvhN/x.jpg" : "https://i.ibb.co/1YNMVKTL/x.jpg"));
-      await axios.post(`https://api.telegram.org/bot${token}/sendPhoto`, { chat_id: chatId, photo: photo, caption: `<b>VIP ${cat.toUpperCase()} Plan</b>\n\nPrice: ₹${pr}`, parse_mode: "HTML", reply_markup: { inline_keyboard: [[{ text: "⚡ Buy", callback_data: "process_payment " + pr }], [{ text: "⬅️ Back", callback_data: "/start" }]] } });
+      await handlePlanSelection(token, chatId, data, clone); // नए हैंडलर पर भेजें
     }
     else if (data === "/start") {
       clone.states[chatId] = "none"; saveClones(activeClones);
@@ -102,17 +86,7 @@ async function handleWebhookUpdate(token, body, activeClones, saveClones) {
     return;
   }
 
-  const chatId = message.chat.id;
-  const userText = msg;
-  const userState = clone.states[chatId] || "none";
-
-  // 🛡️ एडमिन के द्वारा UPI ID सेट करने का लाइव स्टेट हैंडलर
-  if (userState === "waiting_for_admin_upi" && chatId.toString() === clone.adminId) {
-    await saveAdminUpi(token, chatId, userText, clone, saveClones, activeClones);
-    return;
-  }
-
-  // संदेशों को user_handlers.js फ़ाइल पर भेजें
+  // 2. संदेशों को user_handlers.js फ़ाइल पर भेजें
   await handleUserText(token, message, clone, saveClones, activeClones);
 }
 
