@@ -3,7 +3,6 @@ const { sendMainMenu, sendAdminPanel } = require('./menu_helpers');
 
 async function handleUserText(token, message, clone, saveClones, activeClones) {
   const chatId = message.chat.id;
-  // 🛡️ फिक्स: 'msg' के बजाय सीधे मैसेज टेक्स्ट को सुरक्षित रूप से पार्स करें
   const userText = message.text ? message.text.trim() : "";
   const userState = clone.states[chatId] || "none";
 
@@ -61,7 +60,7 @@ async function handleUserText(token, message, clone, saveClones, activeClones) {
   // PLANS SHORT TRIGGERS
   if (userText === "plan_desi" || userText === "plan_cornhub" || userText === "plan_onlyfans" || userText === "plan_asian" || userText === "plan_all") {
     let cat = userText.split("_")[1], pr = clone.prices[cat] || "149";
-    await axios.post(`https://api.telegram.org/bot${token}/sendPhoto`, { chat_id: chatId, photo: "https://i.ibb.co/MxTRHgx0/x.jpg", caption: `<b>VIP ${cat.toUpperCase()} Plan</b>\n\nPrice: ₹${pr}`, parse_mode: "HTML", reply_markup: { inline_keyboard: [[{ text: "⚡ Buy", callback_data: "process_payment " + pr }]] } });
+    await axios.post(`https://api.telegram.org/bot${token}/sendPhoto`, { chat_id: chatId, photo: "https://i.ibb.co/MxTRHgx0/x.jpg", caption: `<b>VIP ${cat.toUpperCase()} Plan</b>\n\nPrice: ₹${pr}`, parse_mode: "HTML", reply_markup: { inline_keyboard: [[{ text: "⚡ Buy", callback_data: "process_payment " + pr }], [{ text: "⬅️ Back", callback_data: "/start" }]] } });
     return;
   }
 
@@ -74,7 +73,9 @@ async function handleUserText(token, message, clone, saveClones, activeClones) {
     clone.userSessions[chatId].last_dep_amt = amount.toString();
     clone.states[chatId] = "waiting_for_deposit_utr"; saveClones(activeClones);
     let qr = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(`upi://pay?pa=${clone.upiId}&am=${amount}`)}`;
-    await axios.post(`https://api.telegram.org/bot${token}/sendPhoto`, { chat_id: chatId, photo: qr, caption: `🏦 *Deposit Request*\nAmount: *₹${amount}*\n\nReply with *UTR* code 👇`, parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "tg://user?id=" + clone.adminId }, { text: "🏠 Cancel", callback_data: "/start" }]] } });
+    
+    // 🛡️ फिक्स: यहाँ अब डायरेक्ट 'url' पैरामीटर के साथ सपोर्ट बटन सेंड होगा (No more crash!)
+    await axios.post(`https://api.telegram.org/bot${token}/sendPhoto`, { chat_id: chatId, photo: qr, caption: `🏦 *Deposit Request*\nAmount: *₹${amount}*\n\nReply with *UTR* code 👇`, parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "💬 Support", url: "tg://user?id=" + clone.adminId }, { text: "🏠 Cancel", callback_data: "/start" }]] } });
     return;
   }
 
@@ -84,7 +85,7 @@ async function handleUserText(token, message, clone, saveClones, activeClones) {
     let amount = (clone.userSessions && clone.userSessions[chatId]) ? clone.userSessions[chatId].last_dep_amt : "100";
     clone.states[chatId] = "none"; saveClones(activeClones);
     await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, { chat_id: chatId, text: "⏳ *Verifying...*" });
-    await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, { chat_id: clone.adminId, text: `💰 *New Deposit Request!*\n\nID: \`${chatId}\`\nAmount: ₹${amt}\nUTR: \`${cleanUtr}\``, parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "✅ Approve", callback_data: `approve_fund ${chatId} ${amt}` }, { text: "❌ Reject", callback_data: `reject_pay ${chatId}` }]] } });
+    await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, { chat_id: clone.adminId, text: `💰 *New Deposit Request!*\n\nID: \`${chatId}\`\nAmount: ₹${amount}\nUTR: \`${cleanUtr}\``, parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "✅ Approve", callback_data: `approve_fund ${chatId} ${amount}` }, { text: "❌ Reject", callback_data: `reject_pay ${chatId}` }]] } });
     return;
   }
 
@@ -94,7 +95,7 @@ async function handleUserText(token, message, clone, saveClones, activeClones) {
     let amount = (clone.userSessions && clone.userSessions[chatId]) ? clone.userSessions[chatId].last_price : "149";
     clone.states[chatId] = "none"; saveClones(activeClones);
     await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, { chat_id: chatId, text: "⏳ *Verifying...*" });
-    await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, { chat_id: clone.adminId, text: `🔔 *New Purchase Request!*\n\nID: \`${chatId}\`\nAmount: ₹${amt}\nUTR: \`${cleanUtr}\``, parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "✅ Approve Buy", callback_data: `approve_pay ${chatId} ${amt}` }, { text: "❌ Reject", callback_data: `reject_pay ${chatId}` }]] } });
+    await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, { chat_id: clone.adminId, text: `🔔 *New Purchase Request!*\n\nID: \`${chatId}\`\nAmount: ₹${amt}\nUTR: \`${cleanUtr}\``, parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "✅ Approve Buy", callback_data: `approve_pay ${chatId} ${amount}` }, { text: "❌ Reject", callback_data: `reject_pay ${chatId}` }]] } });
     return;
   }
 }
