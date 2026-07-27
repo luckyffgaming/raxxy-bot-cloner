@@ -17,15 +17,7 @@ async function sendMainMenu(token, chatId, clone, headerText) {
 
 async function sendAdminPanel(token, chatId, clone) {
   let adminMsg = "👑 *Admin Control Panel* 👑\n\nManage settings:";
-  // ⚙️ फिक्स: '🎥 Edit Demo Video' बटन यहाँ जोड़ा गया है
-  let buttons = [
-    [{ text: "💎 Premium Users", callback_data: "admin_premium_users" }],
-    [{ text: "🔗 Channel link", callback_data: "admin_link" }, { text: "💰 Add fund", callback_data: "admin_fund" }],
-    [{ text: "📊 Stats", callback_data: "admin_stats" }, { text: "📢 Broadcast", callback_data: "admin_broadcast" }],
-    [{ text: "📋 Active plans", callback_data: "admin_active" }, { text: "💵 Change Price", callback_data: "admin_price" }],
-    [{ text: "⚙️ Set UPI ID", callback_data: "admin_upi_settings" }, { text: "🎥 Edit Demo Video", callback_data: "admin_demo_settings" }],
-    [{ text: "🤖 Bot user", callback_data: "admin_fake" }]
-  ];
+  let buttons = [[{ text: "💎 Premium Users", callback_data: "admin_premium_users" }], [{ text: "🔗 Channel link", callback_data: "admin_link" }, { text: "💰 Add fund", callback_data: "admin_fund" }], [{ text: "📊 Stats", callback_data: "admin_stats" }, { text: "📢 Broadcast", callback_data: "admin_broadcast" }], [{ text: "📋 Active plans", callback_data: "admin_active" }, { text: "💵 Change Price", callback_data: "admin_price" }], [{ text: "⚙️ Set UPI ID", callback_data: "admin_upi_settings" }, { text: "🎥 Edit Demo Video", callback_data: "admin_demo_settings" }], [{ text: "🤖 Bot user", callback_data: "admin_fake" }]];
   await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, { chat_id: chatId, text: adminMsg, parse_mode: "Markdown", reply_markup: { inline_keyboard: buttons } });
 }
 
