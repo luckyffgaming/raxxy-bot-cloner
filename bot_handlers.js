@@ -1,7 +1,6 @@
-const axios = require('axios');
+const axios = require('axios'); // 👈 बिल्कुल सही: यहाँ अब 'express' के बजाय 'axios' लोड होगा
 const { sendMainMenu, sendAdminPanel } = require('./menu_helpers');
-const { handleAdminCallbacks } = require('./admin_handlers');
-const { handleUserText } = require('./user_handlers'); // इम्पोर्ट यूज़र टेक्स्ट
+const { handleUserText } = require('./user_handlers');
 
 async function handleWebhookUpdate(token, body, activeClones, saveClones) {
   const clone = activeClones[token];
