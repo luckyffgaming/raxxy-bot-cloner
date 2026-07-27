@@ -25,10 +25,8 @@ async function handleWebhookUpdate(token, body, activeClones, saveClones) {
     else if (data === "admin_upi_settings" && chatId.toString() === clone.adminId) {
       await handleUpiSettings(token, chatId, clone, saveClones, activeClones);
     }
-    // ⚙️ नया: एडमिन के द्वारा वीडियो चेंज करने की रिक्वेस्ट
     else if (data === "admin_demo_settings" && chatId.toString() === clone.adminId) {
-      clone.states[chatId] = "waiting_for_admin_demo";
-      saveClones(activeClones);
+      clone.states[chatId] = "waiting_for_admin_demo"; saveClones(activeClones);
       await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, { chat_id: chatId, text: "🎥 *Edit Demo Video Tool*\n━━━━━━━━━━━━━━━━━━━━━━\nPlease send the Telegram Video File ID or public direct MP4 URL for the free sample video:", parse_mode: "Markdown" });
     }
     else if (data.startsWith("admin_")) {
@@ -37,7 +35,7 @@ async function handleWebhookUpdate(token, body, activeClones, saveClones) {
     else if (data.startsWith("approve_fund ") && chatId.toString() === clone.adminId) {
       let p = data.split(" "), tId = p[1], amt = p[2], old = parseFloat(clone.balances[tId] || "0");
       clone.balances[tId] = (old + parseFloat(amt)).toFixed(2); saveClones(activeClones);
-      await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, { chat_id: tId, text: `🏦 *DEPOSIT SUCCESSFUL*\n━━━━━━━━━━━━━━━━━━━━━\nYour wallet credited with *₹${amt}*.\n\n💰 Balance: Rupee ${clone.balances[tId]}`, parse_mode: "Markdown" });
+      await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, { chat_id: tId, text: `🏦 *DEPOSIT SUCCESSFUL*\n━━━━━━━━━━━━━━━━━━━━━\nYour wallet credited with *₹${amt}*.\n\n💰 Balance: ₹${clone.balances[tId]}`, parse_mode: "Markdown" });
       await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, { chat_id: chatId, text: `Fund Added!` });
     }
     else if (data.startsWith("approve_pay ") && chatId.toString() === clone.adminId) {
@@ -60,7 +58,7 @@ async function handleWebhookUpdate(token, body, activeClones, saveClones) {
       if (!clone.userSessions[chatId]) clone.userSessions[chatId] = {};
       clone.userSessions[chatId].last_price = amt; saveClones(activeClones);
       let upiLink = `upi://pay?pa=${clone.upiId}&pn=RaxxyDev&am=${amt}&cu=INR`, qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(upiLink)}`;
-      // 🛡️ फिक्स: सपोर्ट बटन पर 'url' पैरामीटर को कस्टमाइज़ कर दिया गया है
+      // 🛡️ फिक्स: यहाँ अब डायरेक्ट डीप लिंक काम करेगा (no hardcoded parent user)
       await axios.post(`https://api.telegram.org/bot${token}/sendPhoto`, { chat_id: chatId, photo: qrUrl, caption: `🏦 *Pay & Buy*\nAmount: *₹${amt}*\nUPI: \`${clone.upiId}\`\n\nUTR code paste below 👇`, parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "💰 Purchase from Wallet", callback_data: "buy_wallet " + amt }], [{ text: "💬 Support", url: "tg://user?id=" + clone.adminId }] ] } });
       clone.states[chatId] = "waiting_for_utr_input"; saveClones(activeClones);
     }
@@ -74,7 +72,7 @@ async function handleWebhookUpdate(token, body, activeClones, saveClones) {
         if (!clone.userPlans) clone.userPlans = {};
         clone.userPlans[chatId] = { plan: planName, expire: exp };
         if (!clone.premiumUsersList) clone.premiumUsersList = [];
-        if (!clone.premiumUsersList.find(u => u.id === chatId)) clone.premiumUsersList.push({ id: tId, name: "@" + (callbackQuery.from.username || callbackQuery.from.first_name), plan: planName, expire: exp });
+        if (!clone.premiumUsersList.find(u => u.id === chatId)) clone.premiumUsersList.push({ id: chatId, name: "@" + (callbackQuery.from.username || callbackQuery.from.first_name), plan: planName, expire: exp });
         saveClones(activeClones);
         await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, { chat_id: chatId, text: `✨ *PURCHASE SUCCESSFUL* ✨\n\nPlan: ${planName}\nExpiry: ${exp}\n🔗 ${clone.channelLink}`, parse_mode: "Markdown" });
       }
@@ -94,31 +92,38 @@ async function handleWebhookUpdate(token, body, activeClones, saveClones) {
 
   // 2. ---------------- HANDLE STANDARD TEXT MESSAGES ----------------
   const chatId = message.chat.id;
-  const userText = message.text.trim();
+  
+  // 🛡️ फिक्स: यहाँ अब ऑब्जेक्ट ट्रिम एरर नहीं आएगा (No more crash!)
+  const userText = (message && message.text) ? message.text.trim() : "";
   const userState = clone.states[chatId] || "none";
 
   if (!clone.userList) clone.userList = [];
-  if (!clone.userList.includes(chatId.toString())) {
-    clone.userList.push(chatId.toString());
-    saveClones(activeClones);
+  if (!clone.userList.includes(chatId.toString())) { clone.userList.push(chatId.toString()); saveClones(activeClones); }
+
+  // 🛡️ नया: File ID निकालने के लिए /getid टूल
+  if (userText === "/getid" || userText.startsWith("/getid")) {
+    if (message.video) {
+      await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, { chat_id: chatId, text: `✅ *Video File ID ye hai:*\n\n\`${message.video.file_id}\``, parse_mode: "Markdown" });
+    } else if (message.photo && message.photo.length > 0) {
+      let photoId = message.photo[message.photo.length - 1].file_id;
+      await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, { chat_id: chatId, text: `✅ *Photo File ID ye hai:*\n\n\`${photoId}\``, parse_mode: "Markdown" });
+    } else {
+      await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, { chat_id: chatId, text: "❌ *Media nahi mila!*\n\nKripya `/getid` likhkar uske sath Photo ya Video send karein.", parse_mode: "Markdown" });
+    }
+    return;
   }
 
-  // एडमिन के द्वारा लाइव वीडियो सेट करने का स्टेट हैंडलर
   if (userState === "waiting_for_admin_demo" && chatId.toString() === clone.adminId) {
-    clone.demoVideo = userText;
-    clone.states[chatId] = "none";
-    saveClones(activeClones);
+    clone.demoVideo = userText; clone.states[chatId] = "none"; saveClones(activeClones);
     await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, { chat_id: chatId, text: "✅ *Free Sample Demo Video successfully updated!*" });
     return;
   }
 
-  // एडमिन के द्वारा UPI ID सेट करने का लाइव स्टेट हैंडलर
   if (userState === "waiting_for_admin_upi" && chatId.toString() === clone.adminId) {
     await saveAdminUpi(token, chatId, userText, clone, saveClones, activeClones);
     return;
   }
 
-  // संदेशों को user_handlers.js फ़ाइल पर भेजें
   await handleUserText(token, message, clone, saveClones, activeClones);
 }
 
