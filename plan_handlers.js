@@ -47,23 +47,20 @@ async function handlePlanSelection(token, chatId, data, clone) {
 async function handleFreeSample(token, chatId, clone) {
   try { await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, { chat_id: chatId, text: "👅" }); } catch(e){}
 
-  // 🛡️ गिटहब डायरेक्ट MP4 लिंक (यह टेलीग्राम एपीआई में 100% काम करेगा)
-  let video_1 = "https://raw.githubusercontent.com/luckyffgaming/raxxy-bot-cloner/main/sample_1.mp4";
+  // 🛡️ फिक्स: एडमिन द्वारा सेट किया गया वीडियो भेजेगा, यदि नहीं है तो गिटहब लिंक का उपयोग करेगा
+  let video_1 = clone.demoVideo || "https://raw.githubusercontent.com/luckyffgaming/raxxy-bot-cloner/main/sample_1.mp4";
   let video_2 = "https://raw.githubusercontent.com/luckyffgaming/raxxy-bot-cloner/main/sample_2.mp4";
 
-  let demoMsg = "🔥 <b>FREE SAMPLE CONTENT</b> 🔥\n━━━━━━━━━━━━━━━━━━━━━\nYe hamare premium collection ka ek chota sa demo hai.\n\n💎 <b>Premium mein kya milega?</b>\n✅ Full length 4K Videos\n✅ Daily 50+ New Updates\n✅ Private Community Access\n━━━━━━━━━━━━━━━━━━━━━\n👇 <b>Full access ke liye niche plan chuno:</b>";
+  let demoMsg = "🔥 <b>FREE SAMPLE CONTENT</b> 🔥\n━━━━━━━━━━━━━━━━━━━━━\nYe hamare premium collection ka ek chota sa demo hai.\n\n💎 <b>Premium mein kya milega?</b>\n✅ Full length Ultra HD 4K Videos\n✅ Daily 50+ New Updates\n✅ Private Community Access\n━━━━━━━━━━━━━━━━━━━━━\n👇 <b>Full access ke liye plan select karein:</b>";
   let btns = [
     [{ text: "🚀 Buy VIP Membership", callback_data: "/start" }],
     [{ text: "🏠 Main Menu", callback_data: "/start" }]
   ];
 
   try {
-    // गिटहब लिंक से वीडियो लोड करके सेंड करने का प्रयास
     await axios.post(`https://api.telegram.org/bot${token}/sendVideo`, { chat_id: chatId, video: video_1 });
     await axios.post(`https://api.telegram.org/bot${token}/sendVideo`, { chat_id: chatId, video: video_2, caption: demoMsg, parse_mode: "HTML", reply_markup: { inline_keyboard: btns } });
   } catch (error) {
-    // गिटहब पर वीडियो न मिलने पर सेफ्टी इमेज सेंड कर देगा
-    console.log("Video send failed. Fallback to photo...");
     await axios.post(`https://api.telegram.org/bot${token}/sendPhoto`, {
       chat_id: chatId, photo: "https://i.ibb.co/B5RbHpB9/x.jpg", caption: demoMsg, parse_mode: "HTML", reply_markup: { inline_keyboard: btns }
     });
