@@ -36,7 +36,7 @@ app.post('/api/deploy', async (req, res) => {
   };
   saveClones(activeClones);
 
-const serverUrl = "https://raxxy-bot-cloner-1.onrender.com";
+  const serverUrl = "https://raxxy-bot-cloner-1.onrender.com"; 
   try {
     await axios.get(`https://api.telegram.org/bot${token}/setWebhook?url=${serverUrl}/webhook/${token}`);
     return res.json({ status: "success" });
