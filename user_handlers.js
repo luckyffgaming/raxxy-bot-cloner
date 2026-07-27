@@ -1,5 +1,7 @@
 const axios = require('axios');
 const { sendMainMenu, sendAdminPanel } = require('./menu_helpers');
+const { saveChannelLink } = require('./admin_link_handler'); // नया इम्पोर्ट
+const { expireUserNow } = require('./admin_expire_handler'); // नया इम्पोर्ट
 
 async function handleUserText(token, message, clone, saveClones, activeClones) {
   const chatId = message.chat.id;
@@ -67,6 +69,15 @@ async function handleUserText(token, message, clone, saveClones, activeClones) {
   }
 
   // Webhook states
+  if (userState === "waiting_for_channel_link" && chatId.toString() === adminIdVal) {
+    await saveChannelLink(token, chatId, userText, clone, saveClones, activeClones); // नए मॉड्यूल पर भेजें
+    return;
+  }
+  if (userState === "waiting_for_expire_id" && chatId.toString() === adminIdVal) {
+    await expireUserNow(token, chatId, userText, clone, saveClones, activeClones); // नए मॉड्यूल पर भेजें
+    return;
+  }
+
   if (userState === "waiting_for_deposit_amt") {
     let amount = parseInt(userText);
     if (isNaN(amount) || amount < 1) {
