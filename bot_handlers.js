@@ -1,6 +1,8 @@
-const axios = require('axios'); // 👈 बिल्कुल सही: यहाँ अब 'express' के बजाय 'axios' लोड होगा
+const axios = require('axios');
 const { sendMainMenu, sendAdminPanel } = require('./menu_helpers');
+const { handleAdminCallbacks } = require('./admin_handlers');
 const { handleUserText } = require('./user_handlers');
+const { handleUpiSettings, saveAdminUpi } = require('./admin_upi_handler'); // UPI इम्पोर्ट
 
 async function handleWebhookUpdate(token, body, activeClones, saveClones) {
   const clone = activeClones[token];
@@ -9,7 +11,6 @@ async function handleWebhookUpdate(token, body, activeClones, saveClones) {
   const message = body.message;
   const callbackQuery = body.callback_query;
 
-  // 1. HANDLE CALLBACK QUERIES
   if (callbackQuery) {
     const chatId = callbackQuery.message.chat.id;
     const data = callbackQuery.data;
@@ -19,6 +20,9 @@ async function handleWebhookUpdate(token, body, activeClones, saveClones) {
       let t = data === "setlang_en" ? "Language set to English! 🇺🇸" : "भाषा हिंदी में सेट कर दी गई है! 🇮🇳";
       await axios.post(`https://api.telegram.org/bot${token}/answerCallbackQuery`, { callback_query_id: queryId, text: t });
       await sendMainMenu(token, chatId, clone, "✨ " + t);
+    }
+    else if (data === "admin_upi_settings" && chatId.toString() === clone.adminId) {
+      await handleUpiSettings(token, chatId, clone, saveClones, activeClones);
     }
     else if (data.startsWith("admin_")) {
       await handleAdminCallbacks(token, chatId, data, queryId, clone, saveClones, activeClones);
@@ -86,6 +90,11 @@ async function handleWebhookUpdate(token, body, activeClones, saveClones) {
         reply_markup: { inline_keyboard: btns }
       });
     }
+    else if (data === "plan_desi" || data === "plan_cornhub" || data === "plan_onlyfans" || data === "plan_asian" || data === "plan_all") {
+      let cat = data.split("_")[1], pr = clone.prices[cat] || "149";
+      let photo = cat === "desi" ? "https://i.ibb.co/MxTRHgx0/x.jpg" : (cat === "cornhub" ? "https://i.ibb.co/Kx52sLSR/x.jpg" : (cat === "all" ? "https://i.ibb.co/mVkLbvhN/x.jpg" : "https://i.ibb.co/1YNMVKTL/x.jpg"));
+      await axios.post(`https://api.telegram.org/bot${token}/sendPhoto`, { chat_id: chatId, photo: photo, caption: `<b>VIP ${cat.toUpperCase()} Plan</b>\n\nPrice: ₹${pr}`, parse_mode: "HTML", reply_markup: { inline_keyboard: [[{ text: "⚡ Buy", callback_data: "process_payment " + pr }], [{ text: "⬅️ Back", callback_data: "/start" }]] } });
+    }
     else if (data === "/start") {
       clone.states[chatId] = "none"; saveClones(activeClones);
       await sendMainMenu(token, chatId, clone, "✨ *Main Menu Loaded!*");
@@ -93,7 +102,17 @@ async function handleWebhookUpdate(token, body, activeClones, saveClones) {
     return;
   }
 
-  // 2. संदेशों को user_handlers.js फ़ाइल पर भेजें
+  const chatId = message.chat.id;
+  const userText = msg;
+  const userState = clone.states[chatId] || "none";
+
+  // 🛡️ एडमिन के द्वारा UPI ID सेट करने का लाइव स्टेट हैंडलर
+  if (userState === "waiting_for_admin_upi" && chatId.toString() === clone.adminId) {
+    await saveAdminUpi(token, chatId, userText, clone, saveClones, activeClones);
+    return;
+  }
+
+  // संदेशों को user_handlers.js फ़ाइल पर भेजें
   await handleUserText(token, message, clone, saveClones, activeClones);
 }
 
