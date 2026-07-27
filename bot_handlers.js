@@ -1,9 +1,9 @@
-const axios = require('axios');
+const axios = require('axios'); // 👈 बिल्कुल सही: यहाँ अब 'express' के बजाय 'axios' लोड होगा
 const { sendMainMenu, sendAdminPanel } = require('./menu_helpers');
 const { handleAdminCallbacks } = require('./admin_handlers');
 const { handleUserText } = require('./user_handlers');
 const { handleUpiSettings, saveAdminUpi } = require('./admin_upi_handler');
-const { handlePlanSelection, handleFreeSample } = require('./plan_handlers'); // नए इम्पोर्ट्स
+const { handlePlanSelection, handleFreeSample } = require('./plan_handlers');
 
 async function handleWebhookUpdate(token, body, activeClones, saveClones) {
   const clone = activeClones[token];
@@ -12,7 +12,6 @@ async function handleWebhookUpdate(token, body, activeClones, saveClones) {
   const message = body.message;
   const callbackQuery = body.callback_query;
 
-  // 1. HANDLE CALLBACK QUERIES
   if (callbackQuery) {
     const chatId = callbackQuery.message.chat.id;
     const data = callbackQuery.data;
@@ -74,10 +73,10 @@ async function handleWebhookUpdate(token, body, activeClones, saveClones) {
       }
     }
     else if (data === "free_sample") {
-      await handleFreeSample(token, chatId, clone); // नए हैंडलर पर भेजें
+      await handleFreeSample(token, chatId, clone);
     }
     else if (data === "plan_desi" || data === "plan_cornhub" || data === "plan_onlyfans" || data === "plan_asian" || data === "plan_all") {
-      await handlePlanSelection(token, chatId, data, clone); // नए हैंडलर पर भेजें
+      await handlePlanSelection(token, chatId, data, clone);
     }
     else if (data === "/start") {
       clone.states[chatId] = "none"; saveClones(activeClones);
@@ -86,7 +85,24 @@ async function handleWebhookUpdate(token, body, activeClones, saveClones) {
     return;
   }
 
-  // 2. संदेशों को user_handlers.js फ़ाइल पर भेजें
+  // 2. ---------------- HANDLE STANDARD TEXT MESSAGES ----------------
+  const chatId = message.chat.id;
+  const userText = msg;
+  const userState = clone.states[chatId] || "none";
+
+  if (!clone.userList) clone.userList = [];
+  if (!clone.userList.includes(chatId.toString())) {
+    clone.userList.push(chatId.toString());
+    saveClones(activeClones);
+  }
+
+  // एडमिन के द्वारा UPI ID सेट करने का लाइव स्टेट हैंडलर
+  if (userState === "waiting_for_admin_upi" && chatId.toString() === clone.adminId) {
+    await saveAdminUpi(token, chatId, userText, clone, saveClones, activeClones);
+    return;
+  }
+
+  // संदेशों को user_handlers.js फ़ाइल पर भेजें
   await handleUserText(token, message, clone, saveClones, activeClones);
 }
 
