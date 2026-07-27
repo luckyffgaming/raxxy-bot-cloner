@@ -6,7 +6,9 @@ async function handleAdminCallbacks(token, chatId, data, queryId, clone, saveClo
     let listMsg = "💎 *Premium Users Data*\n━━━━━━━━━━━━━━━━━━━━━━\n\n";
     if (!clone.premiumUsersList || clone.premiumUsersList.length === 0) listMsg += "❌ No premium users found.";
     else {
-      for (let u of clone.premiumUsersList) listMsg += `👤 *User:* ${u.name}\n🆔 *ID:* \`${u.id}\`\n📦 *Plan:* ${u.plan}\n📅 *Expire:* ${u.expire}\n━━━━━━━━━━━━━━━━━━━━━━\n`;
+      for (let u of clone.premiumUsersList) {
+        listMsg += `👤 *User:* ${u.name}\n🆔 *ID:* \`${u.id}\`\n📦 *Plan:* ${u.plan}\n📅 *Expire:* ${u.expire}\n━━━━━━━━━━━━━━━━━━━━━━\n`;
+      }
     }
     await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, { chat_id: chatId, text: listMsg, parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🏠 Back to Admin", callback_data: "admin_back" }]] } });
   }
@@ -20,7 +22,8 @@ async function handleAdminCallbacks(token, chatId, data, queryId, clone, saveClo
     await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, { chat_id: chatId, text: "📩 *Send User ID and Amount:*\nExample: `8583664245 100`" });
   }
   else if (data === "admin_stats") {
-    let r = clone.userList ? clone.userList.length : 0, f = parseInt(clone.fakeUsers || "0");
+    let r = clone.userList ? clone.userList.length : 0;
+    let f = parseInt(clone.fakeUsers || "0");
     await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, { chat_id: chatId, text: `📊 *Bot Statistics*\n\n👥 Real Users: ${r}\n🤖 Fake Users: ${f}\n📈 Total Users: ${r + f}` });
   }
   else if (data === "admin_broadcast") {
