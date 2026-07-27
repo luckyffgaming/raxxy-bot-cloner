@@ -3,7 +3,8 @@ const { sendMainMenu, sendAdminPanel } = require('./menu_helpers');
 
 async function handleUserText(token, message, clone, saveClones, activeClones) {
   const chatId = message.chat.id;
-  const userText = message.text.trim();
+  // 🛡️ फिक्स: 'msg' के बजाय सीधे मैसेज टेक्स्ट को सुरक्षित रूप से पार्स करें
+  const userText = message.text ? message.text.trim() : "";
   const userState = clone.states[chatId] || "none";
 
   if (!clone.userList) clone.userList = [];
@@ -57,14 +58,14 @@ async function handleUserText(token, message, clone, saveClones, activeClones) {
     return;
   }
 
-  // PLANS TRIGGERS
+  // PLANS SHORT TRIGGERS
   if (userText === "plan_desi" || userText === "plan_cornhub" || userText === "plan_onlyfans" || userText === "plan_asian" || userText === "plan_all") {
     let cat = userText.split("_")[1], pr = clone.prices[cat] || "149";
     await axios.post(`https://api.telegram.org/bot${token}/sendPhoto`, { chat_id: chatId, photo: "https://i.ibb.co/MxTRHgx0/x.jpg", caption: `<b>VIP ${cat.toUpperCase()} Plan</b>\n\nPrice: ₹${pr}`, parse_mode: "HTML", reply_markup: { inline_keyboard: [[{ text: "⚡ Buy", callback_data: "process_payment " + pr }]] } });
     return;
   }
 
-  // STATES
+  // Webhook states
   if (userState === "waiting_for_deposit_amt") {
     let amount = parseInt(userText);
     if (isNaN(amount) || amount < 1) return;
