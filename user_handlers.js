@@ -67,35 +67,71 @@ async function handleUserText(token, message, clone, saveClones, activeClones) {
   // Webhook states
   if (userState === "waiting_for_deposit_amt") {
     let amount = parseInt(userText);
-    if (isNaN(amount) || amount < 1) return;
+    if (isNaN(amount) || amount < 1) {
+      await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, { chat_id: chatId, text: "❌ Send numeric value only (Example: 500):" });
+      return;
+    }
     if (!clone.userSessions) clone.userSessions = {};
     if (!clone.userSessions[chatId]) clone.userSessions[chatId] = {};
     clone.userSessions[chatId].last_dep_amt = amount.toString();
     clone.states[chatId] = "waiting_for_deposit_utr"; saveClones(activeClones);
     let qr = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(`upi://pay?pa=${clone.upiId}&am=${amount}`)}`;
     
-    // 🛡️ फिक्स: यहाँ अब डायरेक्ट 'url' पैरामीटर के साथ सपोर्ट बटन सेंड होगा (No more crash!)
-    await axios.post(`https://api.telegram.org/bot${token}/sendPhoto`, { chat_id: chatId, photo: qr, caption: `🏦 *Deposit Request*\nAmount: *₹${amount}*\n\nReply with *UTR* code 👇`, parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "💬 Support", url: "tg://user?id=" + clone.adminId }, { text: "🏠 Cancel", callback_data: "/start" }]] } });
+    // 🛡️ फिक्स: यहाँ डिपॉजिट रसीद और क्यूआर कोड आपके पुराने स्टाइल में कस्टमाइज्ड कर दिया गया है
+    let qrText = `🏦 *Deposit Request*\n\n` +
+                 `💰 Amount: *₹${amount}*\n` +
+                 `🆔 UPI ID: \`${clone.upiId}\`\n\n` +
+                 `1️⃣ Is QR ko scan karein, ₹${amount} apne aap fill ho jayega.\n` +
+                 `2️⃣ Payment ke baad 12-digit UTR niche bhej dein 👇`;
+
+    await axios.post(`https://api.telegram.org/bot${token}/sendPhoto`, { chat_id: chatId, photo: qr, caption: qrText, parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "💬 Support", url: "tg://user?id=" + clone.adminId }, { text: "🏠 Cancel", callback_data: "/start" }]] } });
     return;
   }
 
   if (userState === "waiting_for_deposit_utr") {
     let cleanUtr = userText.replace(/[^0-9]/g, "");
-    if (cleanUtr.length !== 12) return;
+    if (cleanUtr.length !== 12) {
+      await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, { chat_id: chatId, text: "❌ Invalid UTR format. Re-enter 12-digit confirmation code:" });
+      return;
+    }
     let amount = (clone.userSessions && clone.userSessions[chatId]) ? clone.userSessions[chatId].last_dep_amt : "100";
     clone.states[chatId] = "none"; saveClones(activeClones);
     await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, { chat_id: chatId, text: "⏳ *Verifying...*" });
-    await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, { chat_id: clone.adminId, text: `💰 *New Deposit Request!*\n\nID: \`${chatId}\`\nAmount: ₹${amount}\nUTR: \`${cleanUtr}\``, parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "✅ Approve", callback_data: `approve_fund ${chatId} ${amount}` }, { text: "❌ Reject", callback_data: `reject_pay ${chatId}` }]] } });
+    await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, { chat_id: clone.adminId, text: `💰 *New Deposit Request!*\n\nID: \`${chatId}\`\nAmount: ₹${amt}\nUTR: \`${cleanUtr}\``, parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "✅ Approve", callback_data: `approve_fund ${chatId} ${amt}` }, { text: "❌ Reject", callback_data: `reject_pay ${chatId}` }]] } });
     return;
   }
 
   if (userState === "waiting_for_utr_input") {
     let cleanUtr = userText.replace(/[^0-9]/g, "");
-    if (cleanUtr.length !== 12) return;
+    if (cleanUtr.length !== 12) {
+      await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, { chat_id: chatId, text: "❌ Invalid UTR. Re-enter correctly:" });
+      return;
+    }
     let amount = (clone.userSessions && clone.userSessions[chatId]) ? clone.userSessions[chatId].last_price : "149";
     clone.states[chatId] = "none"; saveClones(activeClones);
     await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, { chat_id: chatId, text: "⏳ *Verifying...*" });
-    await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, { chat_id: clone.adminId, text: `🔔 *New Purchase Request!*\n\nID: \`${chatId}\`\nAmount: ₹${amt}\nUTR: \`${cleanUtr}\``, parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "✅ Approve Buy", callback_data: `approve_pay ${chatId} ${amount}` }, { text: "❌ Reject", callback_data: `reject_pay ${chatId}` }]] } });
+    await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, { chat_id: clone.adminId, text: `🔔 *New Purchase Request!*\n\nID: \`${chatId}\`\nAmount: ₹${amount}\nUTR: \`${cleanUtr}\``, parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "✅ Approve Buy", callback_data: `approve_pay ${chatId} ${amount}` }, { text: "❌ Reject", callback_data: `reject_pay ${chatId}` }]] } });
+    return;
+  }
+
+  // 🛡️ फिक्स: एडमिन ब्रॉडकास्ट सिस्टम (फोटो, वीडियो और टेक्स्ट तीनों को सपोर्ट करेगा)
+  if (userState === "waiting_for_broadcast_text" && chatId.toString() === clone.adminId) {
+    clone.states[chatId] = "none"; saveClones(activeClones);
+    await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, { chat_id: chatId, text: "🚀 *Broadcast initiated...*" });
+
+    for (let uId of clone.userList) {
+      try {
+        if (message.photo && message.photo.length > 0) {
+          let photoId = message.photo[message.photo.length - 1].file_id;
+          await axios.post(`https://api.telegram.org/bot${token}/sendPhoto`, { chat_id: uId, photo: photoId, caption: userText || "", parse_mode: "Markdown" });
+        } else if (message.video) {
+          await axios.post(`https://api.telegram.org/bot${token}/sendVideo`, { chat_id: uId, video: message.video.file_id, caption: userText || "", parse_mode: "Markdown" });
+        } else {
+          await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, { chat_id: uId, text: userText, parse_mode: "Markdown" });
+        }
+      } catch (e) {}
+    }
+    await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, { chat_id: chatId, text: "✅ *Broadcast completed successfully!*" });
     return;
   }
 }
