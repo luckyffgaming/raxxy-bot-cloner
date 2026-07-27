@@ -1,4 +1,4 @@
-const axios = require('axios'); // 👈 बिल्कुल सही: यहाँ अब 'express' के बजाय 'axios' लोड होगा
+const axios = require('axios');
 const { sendMainMenu, sendAdminPanel } = require('./menu_helpers');
 const { handleAdminCallbacks } = require('./admin_handlers');
 const { handleUserText } = require('./user_handlers');
@@ -58,7 +58,15 @@ async function handleWebhookUpdate(token, body, activeClones, saveClones) {
       if (!clone.userSessions[chatId]) clone.userSessions[chatId] = {};
       clone.userSessions[chatId].last_price = amt; saveClones(activeClones);
       let upiLink = `upi://pay?pa=${clone.upiId}&pn=RaxxyDev&am=${amt}&cu=INR`, qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(upiLink)}`;
-      await axios.post(`https://api.telegram.org/bot${token}/sendPhoto`, { chat_id: chatId, photo: qrUrl, caption: `🏦 *Pay & Buy*\nAmount: *₹${amt}*\nUPI: \`${clone.upiId}\`\n\nUTR code paste below 👇`, parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "💰 Purchase from Wallet", callback_data: "buy_wallet " + amt }], [{ text: "💬 Support", url: "tg://user?id=" + clone.adminId }] ] } });
+      
+      // 🛡️ फिक्स: यहाँ क्यूआर कोड के नीचे का टेक्स्ट बिल्कुल आपके पुराने फ़ॉर्मेट में कस्टमाइज़ कर दिया गया है
+      let qrText = `🏦 *Pay & Buy Plan*\n\n` +
+                   `💰 Amount: *₹${amt}*\n` +
+                   `🆔 UPI ID: \`${clone.upiId}\`\n\n` +
+                   `1️⃣ Is QR ko scan karein, ₹${amt} apne aap fill ho jayega.\n` +
+                   `2️⃣ Payment ke baad 12-digit UTR bhej dein 👇`;
+
+      await axios.post(`https://api.telegram.org/bot${token}/sendPhoto`, { chat_id: chatId, photo: qrUrl, caption: qrText, parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "💰 Purchase from Wallet", callback_data: "buy_wallet " + amt }], [{ text: "💬 Support", url: "tg://user?id=" + clone.adminId }] ] } });
       clone.states[chatId] = "waiting_for_utr_input"; saveClones(activeClones);
     }
     else if (data.startsWith("buy_wallet ")) {
@@ -92,13 +100,18 @@ async function handleWebhookUpdate(token, body, activeClones, saveClones) {
   // 2. ---------------- HANDLE STANDARD TEXT MESSAGES ----------------
   const chatId = message.chat.id;
   
-  const userText = (message && message.text) ? message.text.trim() : "";
+  // 🛡️ फिक्स: मीडिया कैप्शन और टेक्स्ट इनपुट दोनों को मिलाकर फ़िल्टर करेगा
+  let userText = "";
+  if (message) {
+    if (message.text) userText = message.text.trim();
+    else if (message.caption) userText = message.caption.trim();
+  }
   const userState = clone.states[chatId] || "none";
 
   if (!clone.userList) clone.userList = [];
   if (!clone.userList.includes(chatId.toString())) { clone.userList.push(chatId.toString()); saveClones(activeClones); }
 
-  // 🛡️ नया: File ID निकालने के लिए /getid टूल (100% वर्किंग)
+  // 🛡️ फिक्स: अब फोटो/वीडियो के कैप्शन में भी /getid लिखने पर यह 100% सही आईडी निकालेगा
   if (userText === "/getid" || userText.startsWith("/getid")) {
     if (message.video) {
       await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, { chat_id: chatId, text: `✅ *Video File ID ye hai:*\n\n\`${message.video.file_id}\``, parse_mode: "Markdown" });
