@@ -4,11 +4,7 @@ const DB_FILE = path.join(__dirname, 'clones.json');
 
 function loadClones() {
   if (!fs.existsSync(DB_FILE)) return {};
-  try {
-    return JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
-  } catch (e) {
-    return {};
-  }
+  try { return JSON.parse(fs.readFileSync(DB_FILE, 'utf8')); } catch (e) { return {}; }
 }
 
 function saveClones(data) {
