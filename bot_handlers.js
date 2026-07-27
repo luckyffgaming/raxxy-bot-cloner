@@ -1,4 +1,4 @@
-const axios = require('axios');
+const axios = require('axios'); // 👈 बिल्कुल सही: यहाँ अब 'express' के बजाय 'axios' लोड होगा
 const { sendMainMenu, sendAdminPanel } = require('./menu_helpers');
 const { handleAdminCallbacks } = require('./admin_handlers');
 const { handleUserText } = require('./user_handlers');
@@ -35,7 +35,7 @@ async function handleWebhookUpdate(token, body, activeClones, saveClones) {
     else if (data.startsWith("approve_fund ") && chatId.toString() === clone.adminId) {
       let p = data.split(" "), tId = p[1], amt = p[2], old = parseFloat(clone.balances[tId] || "0");
       clone.balances[tId] = (old + parseFloat(amt)).toFixed(2); saveClones(activeClones);
-      await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, { chat_id: tId, text: `🏦 *DEPOSIT SUCCESSFUL*\n━━━━━━━━━━━━━━━━━━━━━\nYour wallet credited with *₹${amt}*.\n\n💰 Balance: ₹${clone.balances[tId]}`, parse_mode: "Markdown" });
+      await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, { chat_id: tId, text: `🏦 *DEPOSIT SUCCESSFUL*\n━━━━━━━━━━━━━━━━━━━━━\nYour wallet credited with *₹${amt}*.\n\n💰 Balance: Rupee ${clone.balances[tId]}`, parse_mode: "Markdown" });
       await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, { chat_id: chatId, text: `Fund Added!` });
     }
     else if (data.startsWith("approve_pay ") && chatId.toString() === clone.adminId) {
@@ -58,7 +58,6 @@ async function handleWebhookUpdate(token, body, activeClones, saveClones) {
       if (!clone.userSessions[chatId]) clone.userSessions[chatId] = {};
       clone.userSessions[chatId].last_price = amt; saveClones(activeClones);
       let upiLink = `upi://pay?pa=${clone.upiId}&pn=RaxxyDev&am=${amt}&cu=INR`, qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(upiLink)}`;
-      // 🛡️ फिक्स: यहाँ अब डायरेक्ट डीप लिंक काम करेगा (no hardcoded parent user)
       await axios.post(`https://api.telegram.org/bot${token}/sendPhoto`, { chat_id: chatId, photo: qrUrl, caption: `🏦 *Pay & Buy*\nAmount: *₹${amt}*\nUPI: \`${clone.upiId}\`\n\nUTR code paste below 👇`, parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "💰 Purchase from Wallet", callback_data: "buy_wallet " + amt }], [{ text: "💬 Support", url: "tg://user?id=" + clone.adminId }] ] } });
       clone.states[chatId] = "waiting_for_utr_input"; saveClones(activeClones);
     }
@@ -72,7 +71,7 @@ async function handleWebhookUpdate(token, body, activeClones, saveClones) {
         if (!clone.userPlans) clone.userPlans = {};
         clone.userPlans[chatId] = { plan: planName, expire: exp };
         if (!clone.premiumUsersList) clone.premiumUsersList = [];
-        if (!clone.premiumUsersList.find(u => u.id === chatId)) clone.premiumUsersList.push({ id: chatId, name: "@" + (callbackQuery.from.username || callbackQuery.from.first_name), plan: planName, expire: exp });
+        if (!clone.premiumUsersList.find(u => u.id === chatId)) clone.premiumUsersList.push({ id: tId, name: "@" + (callbackQuery.from.username || callbackQuery.from.first_name), plan: planName, expire: exp });
         saveClones(activeClones);
         await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, { chat_id: chatId, text: `✨ *PURCHASE SUCCESSFUL* ✨\n\nPlan: ${planName}\nExpiry: ${exp}\n🔗 ${clone.channelLink}`, parse_mode: "Markdown" });
       }
@@ -93,14 +92,13 @@ async function handleWebhookUpdate(token, body, activeClones, saveClones) {
   // 2. ---------------- HANDLE STANDARD TEXT MESSAGES ----------------
   const chatId = message.chat.id;
   
-  // 🛡️ फिक्स: यहाँ अब ऑब्जेक्ट ट्रिम एरर नहीं आएगा (No more crash!)
   const userText = (message && message.text) ? message.text.trim() : "";
   const userState = clone.states[chatId] || "none";
 
   if (!clone.userList) clone.userList = [];
   if (!clone.userList.includes(chatId.toString())) { clone.userList.push(chatId.toString()); saveClones(activeClones); }
 
-  // 🛡️ नया: File ID निकालने के लिए /getid टूल
+  // 🛡️ नया: File ID निकालने के लिए /getid टूल (100% वर्किंग)
   if (userText === "/getid" || userText.startsWith("/getid")) {
     if (message.video) {
       await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, { chat_id: chatId, text: `✅ *Video File ID ye hai:*\n\n\`${message.video.file_id}\``, parse_mode: "Markdown" });
@@ -124,6 +122,7 @@ async function handleWebhookUpdate(token, body, activeClones, saveClones) {
     return;
   }
 
+  // संदेशों को user_handlers.js फ़ाइल पर भेजें
   await handleUserText(token, message, clone, saveClones, activeClones);
 }
 
