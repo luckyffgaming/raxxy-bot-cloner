@@ -1,5 +1,7 @@
 const axios = require('axios');
 const { sendAdminPanel } = require('./menu_helpers');
+const { handleLinkPrompt } = require('./admin_link_handler'); // नया इम्पोर्ट
+const { handleExpirePrompt } = require('./admin_expire_handler'); // नया इम्पोर्ट
 
 async function handleAdminCallbacks(token, chatId, data, queryId, clone, saveClones, activeClones) {
   if (data === "admin_premium_users") {
@@ -14,12 +16,11 @@ async function handleAdminCallbacks(token, chatId, data, queryId, clone, saveClo
   }
   else if (data === "admin_back") await sendAdminPanel(token, chatId, clone);
   else if (data === "admin_link") {
-    clone.states[chatId] = "waiting_for_channel_link"; saveClones(activeClones);
-    await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, { chat_id: chatId, text: "📩 *Send the new Telegram Channel Link:*" });
+    await handleLinkPrompt(token, chatId, clone, saveClones, activeClones); // नए हैंडलर पर भेजें
   }
   else if (data === "admin_fund") {
     clone.states[chatId] = "waiting_for_fund_input"; saveClones(activeClones);
-    await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, { chat_id: chatId, text: "📩 *Send User ID and Amount:*\nExample: `8583664245 100`" });
+    await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, { chat_id: chatId, text: "📩 *Send User ID and Amount:*" });
   }
   else if (data === "admin_stats") {
     let r = clone.userList ? clone.userList.length : 0;
@@ -39,12 +40,11 @@ async function handleAdminCallbacks(token, chatId, data, queryId, clone, saveClo
     await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, { chat_id: chatId, text: msg, parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🧨 Expire User", callback_data: "admin_expire" }], [{ text: "🏠 Back", callback_data: "admin_back" }]] } });
   }
   else if (data === "admin_expire") {
-    clone.states[chatId] = "waiting_for_expire_id"; saveClones(activeClones);
-    await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, { chat_id: chatId, text: "📩 *Please send the User ID to expire the plan:*", parse_mode: "Markdown" });
+    await handleExpirePrompt(token, chatId, clone, saveClones, activeClones); // नए हैंडलर पर भेजें
   }
   else if (data === "admin_price") {
     clone.states[chatId] = "waiting_for_price_input"; saveClones(activeClones);
-    await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, { chat_id: chatId, text: "Send Category & Price (Example: `desi 149`):" });
+    await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, { chat_id: chatId, text: "Send Category & Price:" });
   }
   else if (data === "admin_fake") {
     clone.states[chatId] = "waiting_for_fake_count"; saveClones(activeClones);
