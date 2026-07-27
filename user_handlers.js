@@ -4,7 +4,7 @@ const { sendMainMenu, sendAdminPanel } = require('./menu_helpers');
 async function handleUserText(token, message, clone, saveClones, activeClones) {
   const chatId = message.chat.id;
   const userText = message.text ? message.text.trim() : "";
-  const userState = clone.states[chatId] || "none";
+  const userState = (clone.states && clone.states[chatId]) ? clone.states[chatId] : "none";
 
   if (!clone.userList) clone.userList = [];
   if (!clone.userList.includes(chatId.toString())) {
@@ -77,14 +77,8 @@ async function handleUserText(token, message, clone, saveClones, activeClones) {
     clone.states[chatId] = "waiting_for_deposit_utr"; saveClones(activeClones);
     let qr = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(`upi://pay?pa=${clone.upiId}&am=${amount}`)}`;
     
-    // 🛡️ फिक्स: यहाँ डिपॉजिट रसीद और क्यूआर कोड आपके पुराने स्टाइल में कस्टमाइज्ड कर दिया गया है
-    let qrText = `🏦 *Deposit Request*\n\n` +
-                 `💰 Amount: *₹${amount}*\n` +
-                 `🆔 UPI ID: \`${clone.upiId}\`\n\n` +
-                 `1️⃣ Is QR ko scan karein, ₹${amount} apne aap fill ho jayega.\n` +
-                 `2️⃣ Payment ke baad 12-digit UTR niche bhej dein 👇`;
-
-    await axios.post(`https://api.telegram.org/bot${token}/sendPhoto`, { chat_id: chatId, photo: qr, caption: qrText, parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "💬 Support", url: "tg://user?id=" + clone.adminId }, { text: "🏠 Cancel", callback_data: "/start" }]] } });
+    // 🛡️ फिक्स: यहाँ अब 'url' पैरामीटर के साथ सपोर्ट बटन सेंड होगा (No more crash!)
+    await axios.post(`https://api.telegram.org/bot${token}/sendPhoto`, { chat_id: chatId, photo: qr, caption: `🏦 *Deposit Request*\nAmount: *₹${amount}*\n\nReply with *UTR* code 👇`, parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "💬 Support", url: "tg://user?id=" + clone.adminId }, { text: "🏠 Cancel", callback_data: "/start" }]] } });
     return;
   }
 
@@ -97,7 +91,7 @@ async function handleUserText(token, message, clone, saveClones, activeClones) {
     let amount = (clone.userSessions && clone.userSessions[chatId]) ? clone.userSessions[chatId].last_dep_amt : "100";
     clone.states[chatId] = "none"; saveClones(activeClones);
     await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, { chat_id: chatId, text: "⏳ *Verifying...*" });
-    await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, { chat_id: clone.adminId, text: `💰 *New Deposit Request!*\n\nID: \`${chatId}\`\nAmount: ₹${amt}\nUTR: \`${cleanUtr}\``, parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "✅ Approve", callback_data: `approve_fund ${chatId} ${amt}` }, { text: "❌ Reject", callback_data: `reject_pay ${chatId}` }]] } });
+    await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, { chat_id: clone.adminId, text: `💰 *New Deposit Request!*\n\nID: \`${chatId}\`\nAmount: ₹${amt}\nUTR: \`${cleanUtr}\``, parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "✅ Approve", callback_data: `approve_fund ${chatId} ${amount}` }, { text: "❌ Reject", callback_data: `reject_pay ${chatId}` }]] } });
     return;
   }
 
